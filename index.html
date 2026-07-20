@@ -1,0 +1,704 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Diamond Hunter — a Minecraft mini-game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #7ec0ee; }
+  body { font-family: "Segoe UI", system-ui, -apple-system, sans-serif; color: #fff; }
+  canvas { display: block; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+
+  #crosshair {
+    position: absolute; top: 50%; left: 50%;
+    width: 22px; height: 22px; transform: translate(-50%, -50%);
+    opacity: .85;
+  }
+  #crosshair::before, #crosshair::after {
+    content: ""; position: absolute; background: #fff;
+    box-shadow: 0 0 2px rgba(0,0,0,.6);
+  }
+  #crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
+  #crosshair::after  { left: 50%; top: 0; height: 100%; width: 2px; transform: translateX(-50%); }
+
+  #topbar {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: stretch;
+  }
+  .stat {
+    background: rgba(0,0,0,.45); backdrop-filter: blur(2px);
+    border: 2px solid rgba(255,255,255,.18); border-radius: 10px;
+    padding: 7px 14px; text-align: center; min-width: 92px;
+  }
+  .stat .label { font-size: 10px; letter-spacing: 1.5px; opacity: .7; text-transform: uppercase; }
+  .stat .value { font-size: 20px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  #diamondStat .value { color: #7ff0ff; text-shadow: 0 0 10px rgba(80,240,255,.6); }
+
+  /* proximity "warmth" bar */
+  #detector {
+    position: absolute; top: 96px; left: 50%; transform: translateX(-50%);
+    width: 260px; text-align: center;
+  }
+  #detector .barwrap {
+    height: 10px; border-radius: 6px; overflow: hidden;
+    background: rgba(0,0,0,.45); border: 2px solid rgba(255,255,255,.18);
+  }
+  #detectorBar { height: 100%; width: 0%; transition: width .15s linear, background .3s; }
+  #detectorText { font-size: 11px; letter-spacing: 1px; margin-top: 5px; text-transform: uppercase; opacity: .85; text-shadow: 0 1px 2px #000; }
+
+  /* hotbar */
+  #hotbar {
+    position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; padding: 6px;
+    background: rgba(0,0,0,.35); border-radius: 12px;
+  }
+  .slot {
+    width: 52px; height: 52px; border-radius: 8px;
+    border: 3px solid rgba(255,255,255,.15);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; transition: transform .1s, border-color .1s;
+  }
+  .slot.active { border-color: #fff; transform: translateY(-6px); }
+  .slot .swatch { width: 26px; height: 26px; border-radius: 4px; box-shadow: inset -3px -3px 0 rgba(0,0,0,.25), inset 3px 3px 0 rgba(255,255,255,.18); }
+  .slot .key { position: absolute; top: 2px; left: 5px; font-size: 10px; opacity: .55; font-weight: 700; }
+  .slot .name { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 9px; letter-spacing: .5px; white-space: nowrap; opacity: 0; transition: opacity .1s; text-shadow: 0 1px 2px #000;}
+  .slot.active .name { opacity: .9; }
+
+  /* overlays */
+  .overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    background: radial-gradient(circle at 50% 40%, rgba(20,30,50,.72), rgba(8,12,22,.9));
+    z-index: 10; padding: 24px;
+  }
+  .overlay h1 { font-size: clamp(34px, 7vw, 64px); letter-spacing: 2px; text-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  .overlay h1 .di { color: #7ff0ff; text-shadow: 0 0 24px rgba(80,240,255,.7), 0 4px 0 rgba(0,0,0,.35); }
+  .overlay p { max-width: 560px; margin: 10px 0; line-height: 1.6; opacity: .9; font-size: 15px; }
+  .keys { display: flex; flex-wrap: wrap; gap: 8px 14px; justify-content: center; margin: 18px 0 6px; max-width: 560px; }
+  .keys span { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+  kbd {
+    background: #eee; color: #222; border-radius: 5px; padding: 1px 7px;
+    font-family: inherit; font-weight: 700; font-size: 12px;
+    box-shadow: 0 2px 0 #999; margin: 0 2px;
+  }
+  .btn {
+    margin-top: 22px; pointer-events: auto; cursor: pointer;
+    background: linear-gradient(#54c25a, #3a9a41); color: #fff;
+    border: none; border-bottom: 4px solid #2c7331; border-radius: 10px;
+    padding: 14px 40px; font-size: 18px; font-weight: 700; letter-spacing: 1px;
+    text-shadow: 0 1px 1px rgba(0,0,0,.3);
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+  #winTime { color: #7ff0ff; font-weight: 700; }
+  .hidden { display: none !important; }
+
+  #hint {
+    position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; letter-spacing: 1px; opacity: .0; text-shadow: 0 1px 3px #000;
+    transition: opacity .4s; text-align: center;
+  }
+</style>
+
+<div id="hud" class="hidden">
+  <div id="crosshair"></div>
+
+  <div id="topbar">
+    <div class="stat" id="diamondStat">
+      <div class="label">Diamonds</div>
+      <div class="value"><span id="found">0</span>/<span id="total">0</span></div>
+    </div>
+    <div class="stat">
+      <div class="label">Time</div>
+      <div class="value" id="timer">0:00</div>
+    </div>
+    <div class="stat">
+      <div class="label">Blocks mined</div>
+      <div class="value" id="mined">0</div>
+    </div>
+  </div>
+
+  <div id="detector">
+    <div class="barwrap"><div id="detectorBar"></div></div>
+    <div id="detectorText">Diamond detector</div>
+  </div>
+
+  <div id="hint"></div>
+  <div id="hotbar"></div>
+</div>
+
+<!-- start screen -->
+<div id="start" class="overlay">
+  <h1><span class="di">DIAMOND</span> HUNTER</h1>
+  <p>A tiny Minecraft-style world. Somewhere beneath the hills, <b>diamonds</b> are buried in the stone.
+     Dig them all out as fast as you can — the glowing detector bar heats up as you get closer.</p>
+  <div class="keys">
+    <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</span>
+    <span><kbd>Space</kbd> Jump</span>
+    <span><kbd>Mouse</kbd> Look</span>
+    <span><b>Left-click</b> Mine</span>
+    <span><b>Right-click</b> Place</span>
+    <span><kbd>1</kbd>–<kbd>7</kbd> Pick block</span>
+    <span><kbd>Shift</kbd> Sprint</span>
+    <span><kbd>R</kbd> New world</span>
+  </div>
+  <p style="opacity:.6; font-size:13px">Click the button, then move your mouse to look around. Press <kbd>Esc</kbd> to release the cursor.</p>
+  <button class="btn" id="playBtn">▶ Play</button>
+</div>
+
+<!-- win screen -->
+<div id="win" class="overlay hidden">
+  <h1>💎 All Found!</h1>
+  <p>You dug up every diamond in <span id="winTime">0:00</span> and mined <span id="winMined">0</span> blocks.</p>
+  <p id="rank" style="font-size:18px; opacity:1"></p>
+  <button class="btn" id="againBtn">↻ Play again</button>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---------------------------------------------------------------------------
+  // Config
+  // ---------------------------------------------------------------------------
+  const WORLD_R = 12;        // world spans [-R, R) in x/z  -> 24x24
+  const MAX_H   = 11;        // vertical build limit
+  const REACH   = 6;         // how far the player can mine/place
+  const DIAMONDS = 8;        // how many to hide
+  const GRAVITY = 26;
+  const JUMP    = 8.6;
+  const PW = 0.3;            // player half-width
+  const PH = 1.8;            // player height
+  const EYE = 1.62;          // eye height above feet
+
+  // Block palette. Colors are per-face [top, side, bottom].
+  const BLOCKS = {
+    bedrock: { solid: true, breakable: false, c: [[.22,.22,.26],[.2,.2,.24],[.18,.18,.22]] },
+    grass:   { solid: true, breakable: true,  c: [[.42,.74,.34],[.52,.42,.28],[.42,.30,.20]] },
+    dirt:    { solid: true, breakable: true,  c: [[.50,.36,.24],[.48,.34,.22],[.44,.31,.20]] },
+    stone:   { solid: true, breakable: true,  c: [[.52,.52,.55],[.49,.49,.52],[.45,.45,.48]] },
+    wood:    { solid: true, breakable: true,  c: [[.54,.40,.24],[.44,.31,.18],[.54,.40,.24]] },
+    plank:   { solid: true, breakable: true,  c: [[.74,.58,.36],[.70,.54,.33],[.66,.50,.30]] },
+    leaves:  { solid: true, breakable: true,  c: [[.26,.54,.24],[.22,.48,.20],[.20,.44,.18]] },
+    diamond: { solid: true, breakable: true,  c: [[.42,.92,.98],[.30,.82,.92],[.26,.74,.86]], glow: true },
+  };
+  // blocks selectable in the hotbar
+  const HOTBAR = ["grass", "dirt", "stone", "wood", "plank", "leaves", "diamond"];
+
+  // ---------------------------------------------------------------------------
+  // Three.js scene
+  // ---------------------------------------------------------------------------
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8ec9f0);
+  scene.fog = new THREE.Fog(0x8ec9f0, 22, 46);
+
+  const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.05, 1000);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  addEventListener("resize", () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // A single mesh holds the whole world (rebuilt on edits).
+  const worldMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+  let worldMesh = new THREE.Mesh(new THREE.BufferGeometry(), worldMat);
+  scene.add(worldMesh);
+
+  // highlight box around the targeted block
+  const highlight = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002)),
+    new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 })
+  );
+  highlight.visible = false;
+  scene.add(highlight);
+
+  // ---------------------------------------------------------------------------
+  // World data:  Map "x,y,z" -> block type
+  // ---------------------------------------------------------------------------
+  let world = new Map();
+  const key = (x, y, z) => x + "," + y + "," + z;
+  const getBlock = (x, y, z) => world.get(key(x, y, z));
+  const isSolid = (x, y, z) => {
+    const b = world.get(key(x, y, z));
+    return b !== undefined && BLOCKS[b].solid;
+  };
+
+  // deterministic-ish smooth height field with a random seed per world
+  let seed = 0;
+  function heightAt(x, z) {
+    const s = seed;
+    const h = 5
+      + 2.1 * Math.sin((x + s) * 0.30) + 2.1 * Math.cos((z - s) * 0.28)
+      + 1.4 * Math.sin((x + z + s) * 0.16)
+      + 0.9 * Math.cos((x - z) * 0.42);
+    return Math.max(2, Math.min(MAX_H - 3, Math.round(h)));
+  }
+  // stable pseudo-random from integer coords + seed
+  function rnd(x, y, z) {
+    let n = (x * 374761393) ^ (y * 668265263) ^ (z * 2246822519) ^ (seed * 3266489917);
+    n = (n ^ (n >>> 13)) >>> 0;
+    n = (n * 1274126177) >>> 0;
+    return (n & 0xfffff) / 0x100000; // 0..1
+  }
+
+  let diamondPositions = [];   // remaining diamonds
+  let totalDiamonds = 0;
+
+  function generateWorld() {
+    world = new Map();
+    diamondPositions = [];
+    seed = (Math.random() * 1000) | 0;
+
+    for (let x = -WORLD_R; x < WORLD_R; x++) {
+      for (let z = -WORLD_R; z < WORLD_R; z++) {
+        const h = heightAt(x, z);
+        for (let y = 0; y <= h; y++) {
+          let type;
+          if (y === 0) type = "bedrock";
+          else if (y === h) type = "grass";
+          else if (y >= h - 2) type = "dirt";
+          else type = "stone";
+          world.set(key(x, y, z), type);
+        }
+        // occasional tree on grass
+        if (rnd(x, 99, z) > 0.94 && Math.abs(x) < WORLD_R - 2 && Math.abs(z) < WORLD_R - 2) {
+          plantTree(x, h + 1, z);
+        }
+      }
+    }
+
+    // bury diamonds inside the stone layer
+    let placed = 0, guard = 0;
+    while (placed < DIAMONDS && guard++ < 4000) {
+      const x = (Math.random() * (WORLD_R * 2 - 4) | 0) - (WORLD_R - 2);
+      const z = (Math.random() * (WORLD_R * 2 - 4) | 0) - (WORLD_R - 2);
+      const h = heightAt(x, z);
+      const y = 1 + (Math.random() * Math.max(1, h - 2) | 0);
+      if (getBlock(x, y, z) === "stone") {
+        world.set(key(x, y, z), "diamond");
+        diamondPositions.push([x, y, z]);
+        placed++;
+      }
+    }
+    totalDiamonds = diamondPositions.length;
+  }
+
+  function plantTree(x, baseY, z) {
+    const th = 4 + (rnd(x, 7, z) > 0.5 ? 1 : 0);
+    for (let i = 0; i < th; i++) world.set(key(x, baseY + i, z), "wood");
+    const top = baseY + th;
+    for (let dy = -2; dy <= 0; dy++) {
+      const r = dy === 0 ? 1 : 2;
+      for (let dx = -r; dx <= r; dx++)
+        for (let dz = -r; dz <= r; dz++) {
+          if (dx === 0 && dz === 0 && dy < 0) continue;
+          if (Math.abs(dx) === r && Math.abs(dz) === r && rnd(x + dx, top + dy, z + dz) > 0.6) continue;
+          const kk = key(x + dx, top + dy, z + dz);
+          if (!world.has(kk)) world.set(kk, "leaves");
+        }
+    }
+    world.set(key(x, top + 1, z), "leaves");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Meshing: build one BufferGeometry from all visible block faces
+  // ---------------------------------------------------------------------------
+  const FACES = [
+    { dir: [ 1, 0, 0], idx: 1, corners: [[1,0,1],[1,1,1],[1,1,0],[1,0,0]] }, // +x
+    { dir: [-1, 0, 0], idx: 1, corners: [[0,0,0],[0,1,0],[0,1,1],[0,0,1]] }, // -x
+    { dir: [ 0, 1, 0], idx: 0, corners: [[0,1,1],[1,1,1],[1,1,0],[0,1,0]] }, // +y top
+    { dir: [ 0,-1, 0], idx: 2, corners: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]] }, // -y bottom
+    { dir: [ 0, 0, 1], idx: 1, corners: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]] }, // +z
+    { dir: [ 0, 0,-1], idx: 1, corners: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]] }, // -z
+  ];
+  const SHADE = [1.0, 0.80, 0.60]; // top / side / bottom multiplier
+
+  function rebuildMesh() {
+    const positions = [];
+    const colors = [];
+
+    world.forEach((type, k) => {
+      const [x, y, z] = k.split(",").map(Number);
+      const def = BLOCKS[type];
+      const jitter = 0.94 + rnd(x, y, z) * 0.12; // subtle per-block texture
+
+      for (const f of FACES) {
+        if (isSolid(x + f.dir[0], y + f.dir[1], z + f.dir[2])) continue; // face hidden
+        const base = def.c[f.idx];
+        const sh = SHADE[f.idx] * (def.glow ? 1.12 : jitter);
+        const cr = Math.min(1, base[0] * sh), cg = Math.min(1, base[1] * sh), cb = Math.min(1, base[2] * sh);
+        const c = f.corners;
+        // two triangles: 0,1,2 and 0,2,3
+        const order = [0, 1, 2, 0, 2, 3];
+        for (const oi of order) {
+          positions.push(x + c[oi][0], y + c[oi][1], z + c[oi][2]);
+          colors.push(cr, cg, cb);
+        }
+      }
+    });
+
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    worldMesh.geometry.dispose();
+    worldMesh.geometry = g;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Player
+  // ---------------------------------------------------------------------------
+  const player = { x: 0.5, y: 14, z: 0.5, vx: 0, vy: 0, vz: 0, onGround: false, yaw: 0, pitch: 0 };
+
+  function spawnPlayer() {
+    const h = heightAt(0, 0);
+    player.x = 0.5; player.z = 0.5; player.y = h + 2;
+    player.vx = player.vy = player.vz = 0;
+    player.yaw = 0; player.pitch = 0;
+  }
+
+  // AABB vs voxels, resolved per-axis
+  function move(dx, dy, dz) {
+    player.x += dx;
+    resolve(0);
+    player.y += dy;
+    resolve(1);
+    player.z += dz;
+    resolve(2);
+  }
+  function resolve(axis) {
+    const minX = Math.floor(player.x - PW), maxX = Math.floor(player.x + PW);
+    const minY = Math.floor(player.y),       maxY = Math.floor(player.y + PH);
+    const minZ = Math.floor(player.z - PW), maxZ = Math.floor(player.z + PW);
+    for (let bx = minX; bx <= maxX; bx++)
+      for (let by = minY; by <= maxY; by++)
+        for (let bz = minZ; bz <= maxZ; bz++) {
+          if (!isSolid(bx, by, bz)) continue;
+          // overlap test
+          if (player.x + PW <= bx || player.x - PW >= bx + 1) continue;
+          if (player.y + PH <= by || player.y     >= by + 1) continue;
+          if (player.z + PW <= bz || player.z - PW >= bz + 1) continue;
+
+          if (axis === 0) {
+            if (player.vx > 0) player.x = bx - PW; else if (player.vx < 0) player.x = bx + 1 + PW;
+            player.vx = 0;
+          } else if (axis === 1) {
+            if (player.vy > 0) { player.y = by - PH; }
+            else { player.y = by + 1; player.onGround = true; }
+            player.vy = 0;
+          } else {
+            if (player.vz > 0) player.z = bz - PW; else if (player.vz < 0) player.z = bz + 1 + PW;
+            player.vz = 0;
+          }
+        }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Voxel raycast (Amanatides & Woo) -> targeted block + face normal
+  // ---------------------------------------------------------------------------
+  function raycast() {
+    const ox = player.x, oy = player.y + EYE, oz = player.z;
+    const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+    const cy = Math.cos(player.yaw),  sy = Math.sin(player.yaw);
+    // forward vector
+    let dx = -sy * cp, dy = sp, dz = -cy * cp;
+    const len = Math.hypot(dx, dy, dz); dx /= len; dy /= len; dz /= len;
+
+    let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+    const stepX = Math.sign(dx), stepY = Math.sign(dy), stepZ = Math.sign(dz);
+    const tDX = dx !== 0 ? Math.abs(1 / dx) : Infinity;
+    const tDY = dy !== 0 ? Math.abs(1 / dy) : Infinity;
+    const tDZ = dz !== 0 ? Math.abs(1 / dz) : Infinity;
+    let tMX = dx > 0 ? (x + 1 - ox) / dx : (dx < 0 ? (ox - x) / -dx : Infinity);
+    let tMY = dy > 0 ? (y + 1 - oy) / dy : (dy < 0 ? (oy - y) / -dy : Infinity);
+    let tMZ = dz > 0 ? (z + 1 - oz) / dz : (dz < 0 ? (oz - z) / -dz : Infinity);
+    let nx = 0, ny = 0, nz = 0, t = 0;
+
+    for (let i = 0; i < 128; i++) {
+      if (isSolid(x, y, z)) return { x, y, z, nx, ny, nz };
+      if (tMX < tMY && tMX < tMZ) { x += stepX; t = tMX; tMX += tDX; nx = -stepX; ny = 0; nz = 0; }
+      else if (tMY < tMZ)         { y += stepY; t = tMY; tMY += tDY; nx = 0; ny = -stepY; nz = 0; }
+      else                        { z += stepZ; t = tMZ; tMZ += tDZ; nx = 0; ny = 0; nz = -stepZ; }
+      if (t > REACH) break;
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Interaction
+  // ---------------------------------------------------------------------------
+  let minedCount = 0;
+
+  function mine() {
+    const hit = raycast();
+    if (!hit) return;
+    const type = getBlock(hit.x, hit.y, hit.z);
+    if (!type || !BLOCKS[type].breakable) { blip(120, 0.05); return; }
+
+    world.delete(key(hit.x, hit.y, hit.z));
+    minedCount++;
+    document.getElementById("mined").textContent = minedCount;
+
+    if (type === "diamond") {
+      diamondPositions = diamondPositions.filter(p => !(p[0] === hit.x && p[1] === hit.y && p[2] === hit.z));
+      const found = totalDiamonds - diamondPositions.length;
+      document.getElementById("found").textContent = found;
+      flashHint("💎  Diamond! " + found + " / " + totalDiamonds, "#7ff0ff");
+      blip(900, 0.12); setTimeout(() => blip(1300, 0.12), 90);
+      if (diamondPositions.length === 0) winGame();
+    } else {
+      blip(300, 0.05);
+    }
+    rebuildMesh();
+  }
+
+  function place() {
+    const hit = raycast();
+    if (!hit) return;
+    const px = hit.x + hit.nx, py = hit.y + hit.ny, pz = hit.z + hit.nz;
+    if (py < 1 || py > MAX_H) return;
+    if (getBlock(px, py, pz)) return;
+    // don't place inside the player
+    if (px + 1 > player.x - PW && px < player.x + PW &&
+        pz + 1 > player.z - PW && pz < player.z + PW &&
+        py + 1 > player.y && py < player.y + PH) return;
+    world.set(key(px, py, pz), HOTBAR[selected]);
+    blip(500, 0.05);
+    rebuildMesh();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Input
+  // ---------------------------------------------------------------------------
+  const keys = {};
+  let selected = 0;
+  let running = false;
+
+  addEventListener("keydown", (e) => {
+    keys[e.code] = true;
+    if (e.code >= "Digit1" && e.code <= "Digit7") selectSlot(+e.code.slice(5) - 1);
+    if (e.code === "KeyR" && running) { newGame(); }
+    if (["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
+  });
+  addEventListener("keyup", (e) => { keys[e.code] = false; });
+
+  const canvas = renderer.domElement;
+  canvas.addEventListener("mousedown", (e) => {
+    if (!running) return;
+    if (document.pointerLockElement !== canvas) { canvas.requestPointerLock(); return; }
+    if (e.button === 0) mine();
+    else if (e.button === 2) place();
+  });
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  document.addEventListener("mousemove", (e) => {
+    if (document.pointerLockElement !== canvas) return;
+    player.yaw   -= e.movementX * 0.0022;
+    player.pitch -= e.movementY * 0.0022;
+    const lim = Math.PI / 2 - 0.01;
+    player.pitch = Math.max(-lim, Math.min(lim, player.pitch));
+  });
+
+  // ---------------------------------------------------------------------------
+  // HUD helpers
+  // ---------------------------------------------------------------------------
+  function buildHotbar() {
+    const bar = document.getElementById("hotbar");
+    bar.innerHTML = "";
+    HOTBAR.forEach((type, i) => {
+      const col = BLOCKS[type].c[0];
+      const el = document.createElement("div");
+      el.className = "slot" + (i === selected ? " active" : "");
+      const rgb = `rgb(${col[0]*255|0},${col[1]*255|0},${col[2]*255|0})`;
+      el.innerHTML =
+        `<span class="key">${i+1}</span>` +
+        `<span class="swatch" style="background:${rgb}"></span>` +
+        `<span class="name">${type}</span>`;
+      el.addEventListener("click", () => selectSlot(i));
+      bar.appendChild(el);
+    });
+  }
+  function selectSlot(i) {
+    if (i < 0 || i >= HOTBAR.length) return;
+    selected = i;
+    [...document.querySelectorAll(".slot")].forEach((s, idx) => s.classList.toggle("active", idx === i));
+  }
+
+  let hintTimer;
+  function flashHint(text, color) {
+    const el = document.getElementById("hint");
+    el.textContent = text;
+    el.style.color = color || "#fff";
+    el.style.opacity = "1";
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => { el.style.opacity = "0"; }, 1400);
+  }
+
+  function updateDetector() {
+    if (!diamondPositions.length) return;
+    let best = Infinity;
+    for (const p of diamondPositions) {
+      const d = Math.hypot(p[0] + 0.5 - player.x, p[1] + 0.5 - (player.y + EYE), p[2] + 0.5 - player.z);
+      if (d < best) best = d;
+    }
+    const warmth = Math.max(0, Math.min(1, 1 - best / 26)); // 0 cold .. 1 hot
+    const bar = document.getElementById("detectorBar");
+    bar.style.width = (warmth * 100).toFixed(0) + "%";
+    // cold blue -> hot red/white
+    const hue = 210 - warmth * 210;
+    bar.style.background = `hsl(${hue}, 90%, ${45 + warmth * 25}%)`;
+    const txt = document.getElementById("detectorText");
+    txt.textContent = best > 20 ? "Ice cold" : best > 12 ? "Cold" : best > 7 ? "Warm" : best > 3.5 ? "Hot!" : "🔥 Burning!";
+  }
+
+  // simple WebAudio blip (no assets)
+  let actx;
+  function blip(freq, dur) {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = "square"; o.frequency.value = freq;
+      g.gain.value = 0.05;
+      o.connect(g); g.connect(actx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+      o.stop(actx.currentTime + dur);
+    } catch (e) { /* audio optional */ }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Game flow
+  // ---------------------------------------------------------------------------
+  let startTime = 0;
+  function fmt(sec) {
+    const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    return m + ":" + String(s).padStart(2, "0");
+  }
+
+  function newGame() {
+    generateWorld();
+    rebuildMesh();
+    spawnPlayer();
+    minedCount = 0;
+    selected = 0;
+    startTime = performance.now();
+    document.getElementById("total").textContent = totalDiamonds;
+    document.getElementById("found").textContent = "0";
+    document.getElementById("mined").textContent = "0";
+    buildHotbar();
+    flashHint("Find " + totalDiamonds + " diamonds!", "#7ff0ff");
+  }
+
+  function startGame() {
+    document.getElementById("start").classList.add("hidden");
+    document.getElementById("win").classList.add("hidden");
+    document.getElementById("hud").classList.remove("hidden");
+    running = true;
+    newGame();
+    canvas.requestPointerLock();
+  }
+
+  function winGame() {
+    running = false;
+    const elapsed = (performance.now() - startTime) / 1000;
+    document.getElementById("winTime").textContent = fmt(elapsed);
+    document.getElementById("winMined").textContent = minedCount;
+    const rank =
+      elapsed < 45 ? "⭐⭐⭐  Legendary miner!" :
+      elapsed < 90 ? "⭐⭐  Solid digging." :
+                     "⭐  You got them all!";
+    document.getElementById("rank").textContent = rank;
+    document.getElementById("win").classList.remove("hidden");
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  document.getElementById("playBtn").addEventListener("click", startGame);
+  document.getElementById("againBtn").addEventListener("click", startGame);
+
+  // ---------------------------------------------------------------------------
+  // Main loop
+  // ---------------------------------------------------------------------------
+  let last = performance.now();
+  function loop(now) {
+    requestAnimationFrame(loop);
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05;
+
+    if (running) {
+      // movement input relative to yaw
+      const speed = (keys["ShiftLeft"] || keys["ShiftRight"]) ? 7.5 : 4.6;
+      let fwd = 0, str = 0;
+      if (keys["KeyW"] || keys["ArrowUp"]) fwd += 1;
+      if (keys["KeyS"] || keys["ArrowDown"]) fwd -= 1;
+      if (keys["KeyD"] || keys["ArrowRight"]) str += 1;
+      if (keys["KeyA"] || keys["ArrowLeft"]) str -= 1;
+
+      const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
+      // forward = (-sin, -cos); right = (cos, -sin)
+      let mx = (-sy * fwd + cy * str);
+      let mz = (-cy * fwd - sy * str);
+      const ml = Math.hypot(mx, mz);
+      if (ml > 0) { mx = mx / ml * speed; mz = mz / ml * speed; }
+      player.vx = mx; player.vz = mz;
+
+      if (keys["Space"] && player.onGround) { player.vy = JUMP; player.onGround = false; }
+      player.vy -= GRAVITY * dt;
+      player.onGround = false;
+
+      move(player.vx * dt, player.vy * dt, player.vz * dt);
+
+      // safety net: if we somehow fall out, respawn
+      if (player.y < -8) spawnPlayer();
+
+      // camera follows eye
+      camera.position.set(player.x, player.y + EYE, player.z);
+      const cp = Math.cos(player.pitch), sp = Math.sin(player.pitch);
+      const cyw = Math.cos(player.yaw), syw = Math.sin(player.yaw);
+      camera.lookAt(
+        player.x - syw * cp,
+        player.y + EYE + sp,
+        player.z - cyw * cp
+      );
+
+      // targeting highlight
+      const hit = raycast();
+      if (hit) { highlight.visible = true; highlight.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5); }
+      else highlight.visible = false;
+
+      // HUD
+      document.getElementById("timer").textContent = fmt((now - startTime) / 1000);
+      updateDetector();
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  // boot
+  generateWorld();
+  rebuildMesh();
+  spawnPlayer();
+  buildHotbar();
+  requestAnimationFrame(loop);
+
+  // Optional automated-test hook (only active with #autotest in the URL; inert in normal play).
+  if (location.hash === "#autotest") {
+    window.__game = {
+      player, raycast, mine, place, get diamonds() { return diamondPositions.slice(); },
+      get world() { return world; }, isSolid, key, getBlock, aim(dx, dy, dz) {
+        // point the eye at a target block center
+        player.yaw = Math.atan2(-(dx + 0.5 - player.x), -(dz + 0.5 - player.z));
+        const flat = Math.hypot(dx + 0.5 - player.x, dz + 0.5 - player.z);
+        player.pitch = Math.atan2((dy + 0.5) - (player.y + EYE), flat);
+      }
+    };
+  }
+})();
+</script>
