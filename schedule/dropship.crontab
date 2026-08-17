@@ -1,0 +1,19 @@
+# Bagisto AliExpress Dropship — scheduled product sync
+#
+# Runs the extension's `dropship:product:update` command every 5 minutes to pull
+# fresh price and quantity data from AliExpress for imported products.
+#
+# Install into the crontab of the user that owns the Bagisto app, e.g.:
+#   crontab -e        # then paste the line below
+#   crontab -l        # verify it is installed
+#
+# Replace /project_root_folder_path with the ABSOLUTE path to your Bagisto
+# project root (the directory that contains `artisan`), and `php` with the full
+# path to the PHP binary if it is not on cron's PATH (`which php`).
+#
+# NOTE: this command is a no-op unless BOTH of these are enabled in the store
+# admin under Configuration > Dropship settings:
+#   - dropship.settings.auto_updation.price
+#   - dropship.settings.auto_updation.quantity
+
+*/5 * * * * php /project_root_folder_path/artisan dropship:product:update

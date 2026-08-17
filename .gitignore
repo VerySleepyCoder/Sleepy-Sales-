@@ -1,0 +1,3 @@
+# Composer installs dependencies into vendor/ from composer.lock.
+# Commit composer.json + composer.lock; regenerate vendor/ with `composer install`.
+/vendor/
