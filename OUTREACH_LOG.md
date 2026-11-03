@@ -5,7 +5,7 @@ Booking link: https://calendly.com/chrisfrias1000/15-min-website-walkthrough
 Pricing in email: site $900-$1,500 + $79-$149/mo; site + text-back $2,500 + $750/mo
 
 ## Status as of 2026-11-03
-- Sent so far: ~65 (Phoenix, Tucson, Las Vegas, Albuquerque on Nov 1-2; San Antonio + El Paso on Nov 3)
+- Sent so far: ~96 (Phoenix, Tucson, Las Vegas, Albuquerque on Nov 1-2; San Antonio + El Paso on Nov 3)
 - Replies: 0 | Calendly bookings: 0 seen
 - Bounced (remove from lists): office@kingdomplumbing.com, vvlandscapinglasvegas@gmail.com,
   info@phxlandscapers.com, info@larkinplumbingservice.com (blocked),
@@ -15,6 +15,14 @@ Pricing in email: site $900-$1,500 + $79-$149/mo; site + text-back $2,500 + $750
 Emails sent Nov 1-2 had links wrapped in `google.com/url?q=...` redirects (copied out of Gmail).
 These look like phishing and show a "Redirect Notice" after ~24h. Likely hurt replies.
 Nov 3 batch (15 emails) was sent with clean, direct links. Always check for `google.com/url` before sending.
+
+## Owner batch (2026-11-03) - SENT
+- Bought 60 owner emails from Vibe Prospecting (180 credits; 15 credits left).
+  List lives in Vibe Prospecting (dataset ds-9958fc70-5301-4d8f-977c-ac54da92494e), not in this repo.
+- Sent 30 personal "Hi {first name}" emails to owners of roofers/landscapers/plumbers in
+  TX, CO, UT, OK, ID, KS, AR. Demo link had no phone number (list has none).
+- Skipped 30: sales reps, engineers, HVAC-only, commercial mechanical, mismatched email domains.
+- Also sent Phend Plumbing and Rooter (Mesa) at phendplumbing@gmail.com, found on their website.
 
 ## Still to do
 - ~35 drafts in Gmail have NO email address (Phoenix-area plumbers, e.g. Echo Plumbing, WHAT Plumbing,
