@@ -5,11 +5,12 @@ Booking link: https://calendly.com/chrisfrias1000/15-min-website-walkthrough
 Pricing in email: site $900-$1,500 + $79-$149/mo; site + text-back $2,500 + $750/mo
 
 ## Status as of 2026-11-03
-- Sent so far: ~96 (Phoenix, Tucson, Las Vegas, Albuquerque on Nov 1-2; San Antonio + El Paso on Nov 3)
+- Sent so far: ~96 (Nov 1-2: Phoenix, Tucson, Las Vegas, Albuquerque; Nov 3: San Antonio, El Paso + 30 owners in TX/CO/UT/OK/ID/KS/AR)
 - Replies: 0 | Calendly bookings: 0 seen
 - Bounced (remove from lists): office@kingdomplumbing.com, vvlandscapinglasvegas@gmail.com,
   info@phxlandscapers.com, info@larkinplumbingservice.com (blocked),
-  support@stonehouseroofers.com, info@roofsolutionsandconstruction.com
+  support@stonehouseroofers.com, info@roofsolutionsandconstruction.com,
+  jefffolsom@alpinesheetmetalsystems.com
 
 ## Important fix (2026-11-03)
 Emails sent Nov 1-2 had links wrapped in `google.com/url?q=...` redirects (copied out of Gmail).
